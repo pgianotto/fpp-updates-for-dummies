@@ -1,0 +1,71 @@
+name: Publish summary as release
+
+# Each daily summary becomes a GitHub Release, because GitHub only emails
+# watchers about releases (not commits). Watch -> Custom -> Releases to get them.
+
+on:
+  push:
+    branches: [main]
+    paths: ['summaries/**/*.md']
+  workflow_dispatch:
+    inputs:
+      file:
+        description: 'Summary file to publish (e.g. summaries/2026-10/2026-10-28.md). Blank = newest.'
+        required: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-summary
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Find summary files to publish
+        id: files
+        env:
+          BEFORE: ${{ github.event.before }}
+          INPUT_FILE: ${{ github.event.inputs.file }}
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            if [ -n "$INPUT_FILE" ]; then
+              echo "$INPUT_FILE" > files.txt
+            else
+              ls summaries/*/*.md | sort | tail -1 > files.txt
+            fi
+          elif [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+            ls summaries/*/*.md | sort | tail -1 > files.txt
+          else
+            git diff --name-only --diff-filter=AM "$BEFORE" "${{ github.sha }}" -- 'summaries/*/*.md' | sort > files.txt
+          fi
+          echo "Files:"; cat files.txt
+
+      - name: Create or update releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          newest=$(ls summaries/*/*.md | sort | tail -1)
+          while read -r f; do
+            [ -f "$f" ] || continue
+            tag=$(basename "$f" .md)
+            title=$(head -1 "$f" | sed 's/^# *//')
+            # Body: everything after the title line, plus a link back to the file.
+            tail -n +2 "$f" > notes.md
+            printf '\n\n[View this summary on GitHub](https://github.com/%s/blob/main/%s)\n' "$REPO" "$f" >> notes.md
+            latest=false; [ "$f" = "$newest" ] && latest=true
+            if gh release view "$tag" -R "$REPO" >/dev/null 2>&1; then
+              gh release edit "$tag" -R "$REPO" --title "$title" --notes-file notes.md --latest="$latest"
+              echo "Updated release $tag"
+            else
+              gh release create "$tag" -R "$REPO" --target "${{ github.sha }}" --title "$title" --notes-file notes.md --latest="$latest"
+              echo "Created release $tag"
+            fi
+          done < files.txt

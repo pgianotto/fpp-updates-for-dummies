@@ -6,8 +6,10 @@ Daily, plain-English summaries of what changed in [Falcon Player (FPP)](https://
 
 ## How to follow along
 
-- Click **Watch → Custom → Commits** (or just **Watch**) at the top of this page to get notified when a new day is added.
-- Or subscribe to the feed in any RSS reader: `https://github.com/pgianotto/fpp-updates-for-dummies/commits/main.atom`
+Each day's summary is also published as a [Release](https://github.com/pgianotto/fpp-updates-for-dummies/releases), so GitHub can email it to you.
+
+- **Email:** click **Watch → Custom**, tick **Releases**, then **Apply**. Make sure email is on for watched repositories in your [GitHub notification settings](https://github.com/settings/notifications).
+- **RSS:** subscribe to `https://github.com/pgianotto/fpp-updates-for-dummies/releases.atom` in any feed reader.
 
 ## Where things are
 
